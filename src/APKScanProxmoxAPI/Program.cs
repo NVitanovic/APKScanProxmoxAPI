@@ -14,6 +14,15 @@ namespace APKScanProxmoxAPI
     {
         enum ePVEAction { get, create, delete};
         //-------------------------------------------------------------------------------------------------------------------------------
+        private class test
+        {
+            public string keyboard { get; set; }
+            public string release { get; set; }
+            public string repoid { get; set; }
+            public string version { get; set; }
+
+        }
+        //-------------------------------------------------------------------------------------------------------------------------------
         public static   Configuration           config  { get; set; }
         private static  DataLayer               dl      = null;
         //-------------------------------------------------------------------------------------------------------------------------------
@@ -28,7 +37,7 @@ namespace APKScanProxmoxAPI
             return true;
         }
         //-------------------------------------------------------------------------------------------------------------------------------
-        private static string ExecuteCommand(ePVEAction action, string url, Dictionary<string,string> data)
+        private static string ExecuteCommand(ePVEAction action, string url, Dictionary<string,string> data = null)
         {
             //apropriate action
             string str_action = "";
@@ -46,31 +55,29 @@ namespace APKScanProxmoxAPI
                 default:
                     return null;
             }
+
             //build parameters
             string str_parameters = "";
-            foreach(var command in data)
-                str_parameters += $"-{command.Key} {command.Value} ";
+            if(data != null)
+                foreach(var command in data)
+                    str_parameters += $" -{command.Key} {command.Value} ";
 
             //setup the process
             Process api = new Process();
             api.StartInfo.FileName = "pvesh";
-            api.StartInfo.Arguments = str_action + str_parameters;
+            api.StartInfo.Arguments = str_action + url + str_parameters;
             api.StartInfo.UseShellExecute = false;
             api.StartInfo.RedirectStandardOutput = true;
             api.StartInfo.CreateNoWindow = true;
             //start the process
             api.Start();
 
-            //check if the first line is valid or not
-            string first_line = api.StandardOutput.ReadLine();
-            if (first_line.IndexOf("200 OK") != -1)
+            //check the read data if it's empty there was a error with the request
+            string json_data = api.StandardOutput.ReadToEnd();
+            if (json_data.Length == 0)
                 return null;
-
-            //read until the end of data
-            string json_data = "";
-            while(!api.StandardOutput.EndOfStream)
-                json_data = api.StandardOutput.ReadLine();
-
+            //works, does not show 200 OK
+            //just reports the content
             //everything is read sucesfully
             return json_data;
         }
@@ -103,7 +110,21 @@ namespace APKScanProxmoxAPI
             sub.Subscribe(config.message_channel, RedisReader);
 
             //Execute the test command
+            string data = ExecuteCommand(ePVEAction.get, "/version");
+            
             Console.ReadLine();
+            Console.WriteLine("DATA: " + data);
+            Console.ReadLine();
+
+            test x = JsonConvert.DeserializeObject<test>(data);
+            Console.WriteLine(x.keyboard);
+            Console.WriteLine(x.release);
+            Console.WriteLine(x.repoid);
+            Console.WriteLine(x.version);
+
+            data = ExecuteCommand(ePVEAction.get, "/xcvxcgsdf");
+            if (data == null)
+                Console.WriteLine("NO DATA");
         }
         //-------------------------------------------------------------------------------------------------------------------------------
     }
