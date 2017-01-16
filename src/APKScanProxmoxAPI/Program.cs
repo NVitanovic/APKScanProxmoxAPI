@@ -14,15 +14,6 @@ namespace APKScanProxmoxAPI
     {
         enum ePVEAction { get, create, delete};
         //-------------------------------------------------------------------------------------------------------------------------------
-        private class test
-        {
-            public string keyboard { get; set; }
-            public string release { get; set; }
-            public string repoid { get; set; }
-            public string version { get; set; }
-
-        }
-        //-------------------------------------------------------------------------------------------------------------------------------
         public static   Configuration           config  { get; set; }
         private static  DataLayer               dl      = null;
         //-------------------------------------------------------------------------------------------------------------------------------
@@ -81,16 +72,33 @@ namespace APKScanProxmoxAPI
             //everything is read sucesfully
             return json_data;
         }
+        private static bool RollbackSnapshot(string vmid, string name = "normal")
+        {
+            if (ExecuteCommand(ePVEAction.create, $"/nodes/fr1pve/qemu/{vmid}/snapshot/{name}/rollback") != null)
+                return true;
+            return false;
+        }
+        private static bool CreateNewSnapshot(string vmid, string name = "normal")
+        {
+            //first rollback the last snapshot
+            if (ExecuteCommand(ePVEAction.create, $"/nodes/fr1pve/qemu/{vmid}/snapshot/{name}/rollback") == null)
+                return false;
+            //second    reset the VM
+            if (ExecuteCommand(ePVEAction.create, $"/nodes/fr1pve/qemu/{vmid}/status/reset") == null)
+                return false;
+            //wait for the reboot
+
+            //third     remove the normal snapshot
+            //fourth    create a new normal snapshot 
+            return true;
+        }
         //-------------------------------------------------------------------------------------------------------------------------------
         private static void RedisReader(RedisChannel channel, RedisValue value)
         {
-            while(true)
+            string data = dl.redis.ListRightPop(config.message_channel);
+            if (data != null)
             {
-                string data = dl.redis.ListRightPop(config.message_channel);
-                if (data == null)
-                    continue;
-                //TODO: Do action depending on the task
-
+                Console.WriteLine("RUN:" + value + " DATA: " + data);
             }
         }
         //-------------------------------------------------------------------------------------------------------------------------------
@@ -110,21 +118,9 @@ namespace APKScanProxmoxAPI
             sub.Subscribe(config.message_channel, RedisReader);
 
             //Execute the test command
-            string data = ExecuteCommand(ePVEAction.get, "/version");
+            string data = ExecuteCommand(ePVEAction.get, args[0]);
             
             Console.ReadLine();
-            Console.WriteLine("DATA: " + data);
-            Console.ReadLine();
-
-            test x = JsonConvert.DeserializeObject<test>(data);
-            Console.WriteLine(x.keyboard);
-            Console.WriteLine(x.release);
-            Console.WriteLine(x.repoid);
-            Console.WriteLine(x.version);
-
-            data = ExecuteCommand(ePVEAction.get, "/xcvxcgsdf");
-            if (data == null)
-                Console.WriteLine("NO DATA");
         }
         //-------------------------------------------------------------------------------------------------------------------------------
     }
