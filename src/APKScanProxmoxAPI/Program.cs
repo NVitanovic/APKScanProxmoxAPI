@@ -149,7 +149,7 @@ namespace APKScanProxmoxAPI
                             if (RollbackSnapshot(res.vm_id))
                                 returnResult.status = true;
                         }
-                        else if(res.task == eTask.crateSnapshot)
+                        else if(res.task == eTask.createSnapshot)
                         {
                             if (CreateNewSnapshot(res.vm_id))
                                 returnResult.status = true;
