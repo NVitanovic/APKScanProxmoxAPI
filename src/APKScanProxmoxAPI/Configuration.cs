@@ -7,7 +7,8 @@ namespace APKScanProxmoxAPI
 {
     public class Configuration : SharedConfiguration
     {
-        public List<string> authorized { get; set; }
+        public Dictionary<string, string> authorized { get; set; }
         public string message_channel { get; set; }
+        public int vm_restart_time_in_seconds { get; set; }
     }
 }

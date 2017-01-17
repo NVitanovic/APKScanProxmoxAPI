@@ -7,6 +7,7 @@ using System.IO;
 using Newtonsoft.Json;
 using StackExchange.Redis;
 using System.Diagnostics;
+using System.Threading;
 
 namespace APKScanProxmoxAPI
 {
@@ -72,25 +73,55 @@ namespace APKScanProxmoxAPI
             //everything is read sucesfully
             return json_data;
         }
+        //-------------------------------------------------------------------------------------------------------------------------------
         private static bool RollbackSnapshot(string vmid, string name = "normal")
         {
+            DateTime datum = DateTime.UtcNow;
+            Console.WriteLine($"[{datum}] Starting the rollback of the {vmid} VM from {name} snapshot...");
             if (ExecuteCommand(ePVEAction.create, $"/nodes/fr1pve/qemu/{vmid}/snapshot/{name}/rollback") != null)
+            {
+                Console.WriteLine($"[{datum}] Rollback of the {vmid} VM from {name} snapshot finished!");
                 return true;
+            }
+            Console.WriteLine($"[{datum}] Rollback of the {vmid} VM from {name} snapshot FAILED!");
             return false;
         }
+        //-------------------------------------------------------------------------------------------------------------------------------
         private static bool CreateNewSnapshot(string vmid, string name = "normal")
         {
+            DateTime datum = DateTime.UtcNow;
             //first rollback the last snapshot
+            Console.WriteLine($"[{datum}] Starting the rollback of the {vmid} VM from {name} snapshot...");
             if (ExecuteCommand(ePVEAction.create, $"/nodes/fr1pve/qemu/{vmid}/snapshot/{name}/rollback") == null)
                 return false;
+            Console.WriteLine($"[{datum}] Restarting the VM {vmid}...");
             //second    reset the VM
             if (ExecuteCommand(ePVEAction.create, $"/nodes/fr1pve/qemu/{vmid}/status/reset") == null)
                 return false;
             //wait for the reboot
-
+            Console.WriteLine($"[{datum}] Restarting of {vmid} complete, waiting {config.vm_restart_time_in_seconds} seconds for boot...");
+            Thread.Sleep(config.vm_restart_time_in_seconds);
             //third     remove the normal snapshot
+            Console.WriteLine($"[{datum}] Removing from {vmid} last good snapshot {name}...");
+            if (ExecuteCommand(ePVEAction.delete, $"/nodes/fr1pve/qemu/{vmid}/snapshot/{name}") == null)
+                return false;
             //fourth    create a new normal snapshot 
+            Console.WriteLine($"[{datum}] Creating a new snapshot from VM {vmid} with name {name}...");
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            data["snapname"] = "normal";
+            data["vmstate"] = "true";
+            if (ExecuteCommand(ePVEAction.delete, $"/nodes/fr1pve/qemu/{vmid}/snapshot/{name}", data) == null)
+                return false;
+            Console.WriteLine($"[{datum}] New snapshot for {vmid} created with name {name}!");
             return true;
+        }
+        //-------------------------------------------------------------------------------------------------------------------------------
+        private static bool CheckAuth(string master_id, string password)
+        {
+            if (config.authorized.ContainsKey(master_id))
+                if (config.authorized[master_id] == password)
+                    return true;
+            return false;
         }
         //-------------------------------------------------------------------------------------------------------------------------------
         private static void RedisReader(RedisChannel channel, RedisValue value)
@@ -99,6 +130,45 @@ namespace APKScanProxmoxAPI
             if (data != null)
             {
                 Console.WriteLine("RUN:" + value + " DATA: " + data);
+                RedisProxmox res = JsonConvert.DeserializeObject<RedisProxmox>(data);
+                if(res != null)
+                {
+                    //check if the user is with valid credentials
+                    if(CheckAuth(res.master_id,res.auth))
+                    {
+                        //create the response object
+                        RedisProxmoxResult returnResult = new RedisProxmoxResult();
+                        returnResult.master_id  = res.master_id;
+                        returnResult.lastRun    = DateTime.UtcNow;
+                        returnResult.lastTask   = res.task;
+                        returnResult.status     = false;
+
+                        //tasks start
+                        if (res.task == eTask.rollbackSnapshot)
+                        {
+                            //if the rollback is succesfull
+                            if (RollbackSnapshot(res.vm_id))
+                                returnResult.status = true;
+                        }
+                        else if(res.task == eTask.crateSnapshot)
+                        {
+                            if (CreateNewSnapshot(res.vm_id))
+                                returnResult.status = true;
+                        }
+                        //tasks end
+                        
+                        //serialize the result
+                        string rdata = JsonConvert.SerializeObject(returnResult);
+
+                        //add the result value to redis and set its ttl to 1 minute
+                        dl.redis.StringSet("proxmox:" + res.master_id, rdata); 
+                        dl.redis.KeyExpire("proxmox:" + res.master_id, TimeSpan.FromMinutes(1)); //one minute TODO
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Error while DeSerialization of object!");
+                }
             }
         }
         //-------------------------------------------------------------------------------------------------------------------------------
@@ -118,9 +188,13 @@ namespace APKScanProxmoxAPI
             sub.Subscribe(config.message_channel, RedisReader);
 
             //Execute the test command
-            string data = ExecuteCommand(ePVEAction.get, args[0]);
-            
-            Console.ReadLine();
+            //string data = ExecuteCommand(ePVEAction.get, args[0]);
+
+            //work forever
+            while (true)
+            {
+
+            } 
         }
         //-------------------------------------------------------------------------------------------------------------------------------
     }

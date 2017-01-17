@@ -11,9 +11,10 @@
       "192.168.4.213:7000"
     ]
   },
-  "authorized": [
-    "password1",
-    "password2"
-  ],
-  "message_channel": "proxmoxapi"
+  "authorized": {
+    "master01": "password1",
+    "master02": "password2"
+  },
+  "message_channel": "proxmoxapi",
+  "vm_restart_time_in_seconds": 120
 }
