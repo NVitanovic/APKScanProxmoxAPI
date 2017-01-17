@@ -100,7 +100,7 @@ namespace APKScanProxmoxAPI
                 return false;
             //wait for the reboot
             Console.WriteLine($"[{datum}] Restarting of {vmid} complete, waiting {config.vm_restart_time_in_seconds} seconds for boot...");
-            Thread.Sleep(config.vm_restart_time_in_seconds);
+            Thread.Sleep(config.vm_restart_time_in_seconds*1000);
             //third     remove the normal snapshot
             Console.WriteLine($"[{datum}] Removing from {vmid} last good snapshot {name}...");
             if (ExecuteCommand(ePVEAction.delete, $"/nodes/fr1pve/qemu/{vmid}/snapshot/{name}") == null)
@@ -110,7 +110,7 @@ namespace APKScanProxmoxAPI
             Dictionary<string, string> data = new Dictionary<string, string>();
             data["snapname"] = "normal";
             data["vmstate"] = "true";
-            if (ExecuteCommand(ePVEAction.delete, $"/nodes/fr1pve/qemu/{vmid}/snapshot/{name}", data) == null)
+            if (ExecuteCommand(ePVEAction.create, $"/nodes/fr1pve/qemu/{vmid}/snapshot/{name}", data) == null)
                 return false;
             Console.WriteLine($"[{datum}] New snapshot for {vmid} created with name {name}!");
             return true;
@@ -174,8 +174,12 @@ namespace APKScanProxmoxAPI
         //-------------------------------------------------------------------------------------------------------------------------------
         public static void Main(string[] args)
         {
+            //Show the app was started
+            DateTime datum = DateTime.UtcNow;
+            Console.WriteLine($"[{datum}] APKScanProxmoxAPI started!");
+
             //Load the configuration
-            if(!LoadConfiguration())
+            if (!LoadConfiguration())
             {
                 Console.WriteLine("Error while reading the configuration file!");
                 return;
@@ -187,13 +191,13 @@ namespace APKScanProxmoxAPI
             ISubscriber sub = dl.redisCluster.GetSubscriber();
             sub.Subscribe(config.message_channel, RedisReader);
 
-            //Execute the test command
-            //string data = ExecuteCommand(ePVEAction.get, args[0]);
+            
 
-            //work forever
             while (true)
             {
-
+                datum = DateTime.UtcNow;
+                Console.WriteLine($"[{datum}] Still alive!");
+                Thread.Sleep(30000);
             } 
         }
         //-------------------------------------------------------------------------------------------------------------------------------
