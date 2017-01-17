@@ -189,19 +189,18 @@ namespace APKScanProxmoxAPI
                 Console.WriteLine($"[{DateTime.UtcNow}] Error while reading the configuration file!");
                 return;
             }
-            //init DB Connection
+            //Init DB Connection
             dl = DataLayer.getInstance();
-            Console.WriteLine($"[{DateTime.UtcNow}] Error while reading the configuration file!");
+            Console.WriteLine($"[{DateTime.UtcNow}] DB connection successfull!");
 
             //init subscriber and subscribe to the channel
             ISubscriber sub = dl.redisCluster.GetSubscriber();
             sub.Subscribe(config.message_channel, RedisReader);
-
+            Console.WriteLine($"[{DateTime.UtcNow}] Subscribe to channel {config.message_channel} successfull!");
             
-
+            //The main loop
             while (true)
             {
-                
                 Console.WriteLine($"[{DateTime.UtcNow}] Still alive!");
                 Thread.Sleep(30000);
             } 
